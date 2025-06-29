@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Lampu Lalu Lintas Adaptif</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #1a1a1a; /* Dark background */
+            font-family: sans-serif; /* font-sans */
+            color: #e0e0e0; /* Light text for contrast */
+        }
+
+        .container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 90rem; /* max-w-7xl */
+            margin-left: auto;
+            margin-right: auto;
+            padding: 1.5rem; /* p-6 */
+        }
+
+        .traffic-light {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: block;
+            margin: 4px;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.1); /* Subtle border */
+        }
+        .traffic-light.active {
+            box-shadow: 0 0 12px 6px rgba(255, 255, 255, 0.3), 0 0 20px 10px currentColor;
+            transform: scale(1.3);
+        }
+        .red { background-color: #dc3545; }
+        .yellow { background-color: #ffc107; }
+        .green { background-color: #28a745; }
+        .gray { background-color: #4a4a4a; }
+
+        .intersection-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+            padding: 20px;
+            background-color: #252525;
+            border-radius: 10px;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .intersection-grid {
+            display: grid;
+            grid-template-columns: 1fr 180px 1fr;
+            grid-template-rows: 1fr 180px 1fr;
+            gap: 0;
+            width: 700px;
+            height: 700px;
+            background-color: #1c1c1c; /* Darker road */
+            border-radius: 5px;
+            position: relative;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
+        }
+
+        .intersection-center {
+            grid-area: 2 / 2 / 3 / 3;
+            background-color: #2a2a2a; /* Deeper intersection center */
+            z-index: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            color: #b0b0b0; /* Lighter text for center */
+            font-weight: bold;
+        }
+
+        .road {
+            background-color: #1c1c1c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .road-north {
+            grid-area: 1 / 2 / 2 / 3;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #3d3d3d; /* Darker border */
+        }
+        .road-south {
+            grid-area: 3 / 2 / 4 / 3;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding-top: 15px;
+            border-top: 2px solid #3d3d3d;
+        }
+        .road-east {
+            grid-area: 2 / 3 / 3 / 4;
+            flex-direction: row;
+            justify-content: flex-start;
+            padding-left: 15px;
+            border-left: 2px solid #3d3d3d;
+        }
+        .road-west {
+            grid-area: 2 / 1 / 3 / 2;
+            flex-direction: row;
+            justify-content: flex-end;
+            padding-right: 15px;
+            border-right: 2px solid #3d3d3d;
+        }
+
+        .traffic-light-group {
+            display: flex;
+            gap: 4px;
+            background-color: #2d2d2d; /* Darker traffic light housing */
+            padding: 8px 10px;
+            border-radius: 10px;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7);
+            border: 1px solid #000;
+            position: relative;
+        }
+
+        .road-east .traffic-light-group,
+        .road-west .traffic-light-group {
+            flex-direction: row;
+        }
+
+        .traffic-timer {
+            color: #ffffff;
+            font-weight: bold;
+            margin-top: 8px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 1em;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .traffic-light-group::before {
+            content: '';
+            position: absolute;
+            background-color: #665500; /* Darker yellow line */
+            width: 4px;
+            height: 100%;
+            left: -10px;
+            top: 0;
+            box-shadow: 0 0 5px rgba(102, 85, 0, 0.3);
+        }
+
+        .road-east .traffic-light-group::before,
+        .road-west .traffic-light-group::before {
+            width: 100%;
+            height: 4px;
+            left: 0;
+            top: -10px;
+        }
+
+        .road::before {
+            display: none;
+        }
+
+        .vehicle-log {
+            color: #b0b0b0;
+            font-size: 0.9em;
+            margin-top: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 font-sans text-gray-200">
+    <div class="container mx-auto p-6 max-w-7xl">
+        <h1 class="text-3xl font-bold text-center text-gray-100 mb-6">Simulasi Lampu Lalu Lintas Adaptif</h1>
+        <p class="text-center text-gray-400 mb-8">Unggah video untuk setiap sisi dan mulai simulasi untuk melihat logika adaptif berdasarkan jumlah kendaraan.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+                <h2 class="text-xl font-semibold text-gray-200 mb-2">Sisi A (Utara)</h2>
+                <input type="file" id="video_sisi_a" accept="video/*" class="mb-4 w-full p-2 border border-gray-700 rounded bg-gray-900 text-gray-200">
+                <button onclick="uploadVideo('sisi_a')" class="w-full bg-blue-900 text-white p-2 rounded hover:bg-blue-800 transition">Unggah Video</button>
+                <p id="car_sisi_a_display" class="text-center mt-2 text-gray-400">Jumlah Kendaraan: <span id="car_sisi_a" class="font-bold text-gray-200">0</span></p>
+                <p id="log_sisi_a" class="vehicle-log"></p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+                <h2 class="text-xl font-semibold text-gray-200 mb-2">Sisi B (Timur)</h2>
+                <input type="file" id="video_sisi_b" accept="video/*" class="mb-4 w-full p-2 border border-gray-700 rounded bg-gray-900 text-gray-200">
+                <button onclick="uploadVideo('sisi_b')" class="w-full bg-blue-900 text-white p-2 rounded hover:bg-blue-800 transition">Unggah Video</button>
+                <p id="car_sisi_b_display" class="text-center mt-2 text-gray-400">Jumlah Kendaraan: <span id="car_sisi_b" class="font-bold text-gray-200">0</span></p>
+                <p id="log_sisi_b" class="vehicle-log"></p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+                <h2 class="text-xl font-semibold text-gray-200 mb-2">Sisi C (Selatan)</h2>
+                <input type="file" id="video_sisi_c" accept="video/*" class="mb-4 w-full p-2 border border-gray-700 rounded bg-gray-900 text-gray-200">
+                <button onclick="uploadVideo('sisi_c')" class="w-full bg-blue-900 text-white p-2 rounded hover:bg-blue-800 transition">Unggah Video</button>
+                <p id="car_sisi_c_display" class="text-center mt-2 text-gray-400">Jumlah Kendaraan: <span id="car_sisi_c" class="font-bold text-gray-200">0</span></p>
+                <p id="log_sisi_c" class="vehicle-log"></p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+                <h2 class="text-xl font-semibold text-gray-200 mb-2">Sisi D (Barat)</h2>
+                <input type="file" id="video_sisi_d" accept="video/*" class="mb-4 w-full p-2 border border-gray-700 rounded bg-gray-900 text-gray-200">
+                <button onclick="uploadVideo('sisi_d')" class="w-full bg-blue-900 text-white p-2 rounded hover:bg-blue-800 transition">Unggah Video</button>
+                <p id="car_sisi_d_display" class="text-center mt-2 text-gray-400">Jumlah Kendaraan: <span id="car_sisi_d" class="font-bold text-gray-200">0</span></p>
+                <p id="log_sisi_d" class="vehicle-log"></p>
+            </div>
+        </div>
+
+        <div class="text-center mb-8">
+            <button id="startBtn" onclick="startSimulation()" class="bg-green-900 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition disabled:bg-gray-700" disabled>Mulai Simulasi</button>
+            <button id="stopBtn" onclick="stopSimulation()" class="bg-red-900 text-white px-6 py-2 rounded-lg hover:bg-red-800 transition ml-4 disabled:bg-gray-700" disabled>Berhenti Simulasi</button>
+        </div>
+
+        <div class="intersection-wrapper">
+            <div class="intersection-grid">
+                <div class="road road-north">
+                    <div class="traffic-light-group" id="lights_sisi_a">
+                        <div id="red_a" class="traffic-light red"></div>
+                        <div id="yellow_a" class="traffic-light yellow"></div>
+                        <div id="green_a" class="traffic-light green"></div>
+                    </div>
+                    <p id="timer_a" class="traffic-timer">Sisa: 0s</p>
+                </div>
+
+                <div class="road road-east">
+                    <div class="traffic-light-group" id="lights_sisi_b">
+                        <div id="red_b" class="traffic-light red"></div>
+                        <div id="yellow_b" class="traffic-light yellow"></div>
+                        <div id="green_b" class="traffic-light green"></div>
+                    </div>
+                    <p id="timer_b" class="traffic-timer">Sisa: 0s</p>
+                </div>
+
+                <div class="road road-south">
+                    <div class="traffic-light-group" id="lights_sisi_c">
+                        <div id="red_c" class="traffic-light red"></div>
+                        <div id="yellow_c" class="traffic-light yellow"></div>
+                        <div id="green_c" class="traffic-light green"></div>
+                    </div>
+                    <p id="timer_c" class="traffic-timer">Sisa: 0s</p>
+                </div>
+
+                <div class="road road-west">
+                    <div class="traffic-light-group" id="lights_sisi_d">
+                        <div id="red_d" class="traffic-light red"></div>
+                        <div id="yellow_d" class="traffic-light yellow"></div>
+                        <div id="green_d" class="traffic-light green"></div>
+                    </div>
+                    <p id="timer_d" class="traffic-timer">Sisa: 0s</p>
+                </div>
+
+                <div class="intersection-center">
+                    <p>Pusat Simpang</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sides = ['sisi_a', 'sisi_b', 'sisi_c', 'sisi_d'];
+        let timerInterval;
+        let simulationRunning = false;
+        let vehicleUpdateInterval;
+        let lastVehicleCounts = {};
+
+        async function uploadVideo(sideKey) {
+            const input = document.getElementById(`video_${sideKey}`);
+            if (!input.files.length) {
+                alert("Pilih video terlebih dahulu!");
+                return;
+            }
+            const formData = new FormData();
+            formData.append('video', input.files[0]);
+            formData.append('side', sideKey);
+            try {
+                const response = await fetch('/upload_video', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(result.message);
+                    const allInputs = sides.map(s => document.getElementById(`video_${s}`));
+                    const allFilesSelected = allInputs.every(input => input.files.length > 0);
+                    document.getElementById('startBtn').disabled = !allFilesSelected;
+                } else {
+                    alert(result.error);
+                }
+            } catch (error) {
+                console.error("Error uploading video:", error);
+                alert("Gagal mengunggah video. Pastikan server berjalan.");
+            }
+        }
+
+        async function updateVehicleCounts() {
+            try {
+                const response = await fetch('/get_vehicle_counts');
+                if (!response.ok) throw new Error('Gagal mengambil data kendaraan');
+                const counts = await response.json();
+                sides.forEach(sideKey => {
+                    const countElement = document.getElementById(`car_${sideKey}`);
+                    const displayElement = document.getElementById(`car_${sideKey}_display`);
+                    const logElement = document.getElementById(`log_${sideKey}`);
+                    if (countElement && displayElement && logElement) {
+                        countElement.textContent = counts[sideKey];
+                        displayElement.textContent = counts[sideKey];
+                        const prevCount = lastVehicleCounts[sideKey] || counts[sideKey];
+                        if (prevCount > counts[sideKey]) {
+                            const lewat = prevCount - counts[sideKey];
+                            logElement.textContent = `Sisi ${sideKey.toUpperCase()}: ${prevCount} kendaraan -> ${lewat} lewat, sisa ${counts[sideKey]}`;
+                        } else {
+                            logElement.textContent = '';
+                        }
+                    }
+                });
+                lastVehicleCounts = { ...counts };
+                return counts;
+            } catch (error) {
+                console.error("Error fetching vehicle counts:", error);
+                return {};
+            }
+        }
+
+        function setLight(sideShort, color) {
+            const colors = ['red', 'yellow', 'green'];
+            colors.forEach(c => {
+                const lightElement = document.getElementById(`${c}_${sideShort}`);
+                if (lightElement) {
+                    lightElement.classList.remove('active');
+                    lightElement.classList.add('gray');
+                }
+            });
+            const activeLightElement = document.getElementById(`${color}_${sideShort}`);
+            if (activeLightElement) {
+                activeLightElement.classList.remove('gray');
+                activeLightElement.classList.add('active');
+            }
+        }
+
+        function updateTimer(sideShort, timeLeft) {
+            const timerElement = document.getElementById(`timer_${sideShort}`);
+            if (timerElement) timerElement.textContent = `Sisa: ${Math.max(0, timeLeft).toFixed(0)}s`;
+        }
+
+        function resetAllLightsToRed() {
+            sides.forEach(sideKey => {
+                const sideShort = sideKey.replace('sisi_', '');
+                setLight(sideShort, 'red');
+                updateTimer(sideShort, 0);
+                document.getElementById(`log_${sideKey}`).textContent = '';
+            });
+        }
+
+        async function runCycle() {
+            try {
+                const response = await fetch('/get_durations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                if (!response.ok) {
+                    console.error("Server error:", await response.text());
+                    alert("Terjadi kesalahan di server. Pastikan server Flask berjalan.");
+                    stopSimulation();
+                    return;
+                }
+                const data = await response.json();
+
+                const currentPrioritas = data.prioritas;
+                const currentSideShort = currentPrioritas.replace('sisi_', '');
+                const currentDuration = parseFloat(data.durasi_prioritas) || 30;
+
+                console.log(`Lampu Hijau untuk ${currentPrioritas.toUpperCase()} selama ${currentDuration} detik.`);
+
+                sides.forEach(side => {
+                    const shortSide = side.replace('sisi_', '');
+                    setLight(shortSide, side === currentPrioritas ? 'green' : 'red');
+                });
+
+                let timeLeft = currentDuration;
+                clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    timeLeft -= 1;
+                    if (timeLeft >= 0) {
+                        updateTimer(currentSideShort, timeLeft);
+                    } else {
+                        clearInterval(timerInterval);
+                        yellowLightPhase(currentSideShort);
+                    }
+                }, 1000);
+
+                await updateVehicleCounts();
+            } catch (error) {
+                console.error("Error during simulation cycle:", error);
+                alert("Gagal menjalankan simulasi. Pastikan server berjalan.");
+                stopSimulation();
+            }
+        }
+
+        function yellowLightPhase(sideShort) {
+            setLight(sideShort, 'yellow');
+            updateTimer(sideShort, 3);
+
+            let yellowTimeLeft = 3;
+            const yellowInterval = setInterval(() => {
+                yellowTimeLeft -= 1;
+                if (yellowTimeLeft >= 0) {
+                    updateTimer(sideShort, yellowTimeLeft);
+                } else {
+                    clearInterval(yellowInterval);
+                    setLight(sideShort, 'red');
+                    updateTimer(sideShort, 0);
+
+                    sides.forEach(side => {
+                        const otherSideShort = side.replace('sisi_', '');
+                        if (otherSideShort !== sideShort) {
+                            setLight(otherSideShort, 'red');
+                        }
+                    });
+
+                    if (simulationRunning) {
+                        runCycle();
+                    } else {
+                        resetAllLightsToRed();
+                    }
+                }
+            }, 1000);
+        }
+
+        function startSimulation() {
+            if (simulationRunning) return;
+            simulationRunning = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('startBtn').disabled = true;
+
+            resetAllLightsToRed();
+            vehicleUpdateInterval = setInterval(updateVehicleCounts, 5000);
+            runCycle();
+        }
+
+        function stopSimulation() {
+            simulationRunning = false;
+            clearInterval(timerInterval);
+            clearInterval(vehicleUpdateInterval);
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('startBtn').disabled = false;
+            resetAllLightsToRed();
+            console.log("Simulasi dihentikan.");
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            sides.forEach(sideKey => {
+                const sideShort = sideKey.replace('sisi_', '');
+                setLight(sideShort, 'red');
+                updateTimer(sideShort, 0);
+            });
+            document.getElementById('startBtn').disabled = true;
+        });
+    </script>
+</body>
+</html>
